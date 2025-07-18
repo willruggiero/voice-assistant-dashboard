@@ -5,12 +5,8 @@ import altair as alt
 st.set_page_config(layout="wide")
 st.title("Voice Assistant Failures Dashboard")
 
-# Upload CSV file or load local copy
-uploaded_file = st.file_uploader("Upload your CSV file", type=["csv"])
-if uploaded_file:
-    df = pd.read_csv(uploaded_file)
-else:
-    df = pd.read_csv("voice-assistant-failures.csv")
+
+df = pd.read_csv("voice-assistant-failures.csv")
 
 # Clean and filter relevant columns
 df_clean = df[['accent', 'race', 'age', 'Failure_Type', 'gender', 'Frequency', 'Failure_Source']].dropna()
