@@ -4,7 +4,7 @@ import altair as alt
 
 # Set up Streamlit page
 st.set_page_config(page_title="Voice Assistant Failures Dashboard", layout="wide")
-st.title("🎤 Voice Assistant Failures Dashboard")
+st.title("Voice Assistant Failures Dashboard")
 
 # ==============================
 # Load and clean data
@@ -41,7 +41,7 @@ df = load_and_clean_data()
 # Dashboard sections
 # ==============================
 
-st.header("📊 Question 1: Failure Types and Sources")
+st.header("Failure Types and Sources")
 failure_counts = df['Failure_Type'].value_counts().reset_index()
 failure_counts.columns = ['Failure_Type', 'count']
 failure_chart = alt.Chart(failure_counts).mark_bar(color='steelblue').encode(
@@ -70,7 +70,7 @@ heatmap = alt.Chart(heatmap_data).mark_rect().encode(
 st.altair_chart(heatmap, use_container_width=True)
 
 # ==============================
-st.header("🗣️ Question 2a: Accent and Failures")
+st.header("Accent and Failures")
 df_accent = df[df['has_accent'] != 'Unknown']
 accent_data = df_accent.groupby(['has_accent', 'Failure_Type']).size().reset_index(name='count')
 accent_totals = df_accent.groupby('has_accent').size().reset_index(name='total')
@@ -86,7 +86,7 @@ accent_chart = alt.Chart(accent_data).mark_bar().encode(
 st.altair_chart(accent_chart, use_container_width=True)
 
 # ==============================
-st.header("👥 Question 2b: Demographics and Failures")
+st.header("Demographics and Failures")
 df['race_clean'] = df['race'].apply(lambda x: 'Multi/Other' if ',' in str(x) else x)
 race_data = df.groupby(['race_clean', 'has_accent', 'Failure_Type']).size().reset_index(name='count')
 race_chart = alt.Chart(race_data).mark_circle(size=100).encode(
@@ -109,7 +109,7 @@ age_chart = alt.Chart(age_data).mark_bar().encode(
 st.altair_chart(age_chart, use_container_width=True)
 
 # ==============================
-st.header("🚻 Question 3: Gender Analysis")
+st.header("Gender Analysis")
 gender_counts = df['gender_clean'].value_counts().reset_index()
 gender_counts.columns = ['gender_clean', 'count']
 gender_pie = alt.Chart(gender_counts).mark_arc(innerRadius=50).encode(
