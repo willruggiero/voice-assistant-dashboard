@@ -2,211 +2,146 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-st.title("Voice Assistant Failures Dashboard")
+# Set up Streamlit page
+st.set_page_config(page_title="Voice Assistant Failures Dashboard", layout="wide")
+st.title("🎤 Voice Assistant Failures Dashboard")
 
-df = pd.read_csv("voice-assistant-failures.csv")
-df_clean = df[['accent', 'race', 'age', 'Failure_Type', 'gender', 'Frequency']].dropna()
+# ==============================
+# Load and clean data
+# ==============================
+@st.cache_data
+def load_and_clean_data():
+    df = pd.read_csv("voice-assistant-failures.csv")
+    df['Failure_Type'] = df['Failure_Type'].fillna('Unknown')
+    df['Failure_Source'] = df['Failure_Source'].fillna('Unknown')
+    df['gender'] = df['gender'].fillna('Unknown')
+    df['age'] = df['age'].fillna('Unknown')
+    df['race'] = df['race'].fillna('Unknown')
+    df['accent'] = df['accent'].fillna('Unknown')
 
-st.sidebar.header("Filters")
+    gender_mapping = {
+        'Woman': 'Woman',
+        'Man': 'Man',
+        'Man,Woman': 'Non-binary/Other',
+        'Prefer not to answer': 'Prefer not to answer'
+    }
+    df['gender_clean'] = df['gender'].map(gender_mapping).fillna(df['gender'])
 
-all_failure_types = df_clean['Failure_Type'].unique().tolist()
-selected_failure_types = st.sidebar.multiselect("Filter by Failure Type", all_failure_types, default=all_failure_types)
+    df['has_accent'] = df['accent'].map({
+        'Yes': 'Yes', 'No': 'No', 'Maybe': 'Maybe', 'Unknown': 'Unknown'
+    }).fillna('Unknown')
 
-all_races = df_clean['race'].unique().tolist()
-selected_races = st.sidebar.multiselect("Filter by Race", all_races, default=all_races)
+    age_order = ['18-24', '25-34', '35-44', '45-54', '55-64', 'Prefer not to answer', 'Unknown']
+    df['age_clean'] = df['age'].apply(lambda x: x if x in age_order else 'Unknown')
+    return df
 
-all_accents = df_clean['accent'].unique().tolist()
-selected_accents = st.sidebar.multiselect("Filter by Accent", all_accents, default=all_accents)
+df = load_and_clean_data()
 
-df_filtered = df_clean[
-    (df_clean['Failure_Type'].isin(selected_failure_types)) &
-    (df_clean['race'].isin(selected_races)) &
-    (df_clean['accent'].isin(selected_accents))
-]
+# ==============================
+# Dashboard sections
+# ==============================
 
-top_failure_types = df_filtered['Failure_Type'].value_counts().nlargest(3).index.tolist()
-df_q2 = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
-top_races = df_q2['race'].value_counts().nlargest(4).index.tolist()
-df_race = df_q2[df_q2['race'].isin(top_races)]
+st.header("📊 Question 1: Failure Types and Sources")
+failure_counts = df['Failure_Type'].value_counts().reset_index()
+failure_counts.columns = ['Failure_Type', 'count']
+failure_chart = alt.Chart(failure_counts).mark_bar(color='steelblue').encode(
+    x=alt.X('count:Q', title='Number of Failures'),
+    y=alt.Y('Failure_Type:N', sort='-x'),
+    tooltip=['Failure_Type:N', 'count:Q']
+).properties(width=400, height=200)
+st.altair_chart(failure_chart, use_container_width=True)
 
-bar_size = 20
-facet_width = 240
-facet_height = 300
-
-failure_type_selection = alt.selection_multi(fields=['Failure_Type'], bind='legend')
-
-race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
-    x=alt.X('Failure_Type:N', title='Failure Type'),
-    y=alt.Y('count()', title='Number of Failures'),
-    color=alt.Color('accent:N', title='Accent', scale=alt.Scale(scheme='category10')),
-    column=alt.Column('race:N', title='Race', spacing=30),
-    opacity=alt.condition(failure_type_selection, alt.value(1), alt.value(0.3)),
-    tooltip=[
-        alt.Tooltip('Failure_Type:N'),
-        alt.Tooltip('race:N'),
-        alt.Tooltip('accent:N'),
-        alt.Tooltip('count()', title='Number of Failures')
-    ]
-).add_selection(
-    failure_type_selection
-).properties(
-    title='Failure Types by Accent and Race (Top 4)',
-).configure_axis(
-    labelFontSize=12,
-    titleFontSize=14
-).configure_header(
-    titleFontSize=14,
-    labelFontSize=8,
-    labelAngle=0
-).configure_legend(
-    titleFontSize=13,
-    labelFontSize=12,
-    orient='top'
-).configure_view(
-    continuousWidth=facet_width,
-    continuousHeight=facet_height
-).configure_axisX(
-    labelAngle=40
-)
-
-df_age = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
-
-age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
-    x=alt.X('Failure_Type:N', title='Failure Type'),
-    y=alt.Y('count()', title='Number of Failures'),
-    color=alt.Color('accent:N', title='Accent', scale=alt.Scale(scheme='category10')),
-    column=alt.Column('age:N', title='Age Group', spacing=30),
-    opacity=alt.condition(failure_type_selection, alt.value(1), alt.value(0.3)),
-    tooltip=[
-        alt.Tooltip('Failure_Type:N'),
-        alt.Tooltip('age:N'),
-        alt.Tooltip('accent:N'),
-        alt.Tooltip('count()', title='Number of Failures')
-    ]
-).add_selection(
-    failure_type_selection
-).properties(
-    title='Failure Types by Accent and Age Group',
-).configure_axis(
-    labelFontSize=12,
-    titleFontSize=14
-).configure_header(
-    titleFontSize=14,
-    labelFontSize=13,
-    labelAngle=0
-).configure_legend(
-    titleFontSize=13,
-    labelFontSize=12,
-    orient='top'
-).configure_view(
-    continuousWidth=facet_width,
-    continuousHeight=facet_height
-).configure_axisX(
-    labelAngle=40
-)
-
-source_data = pd.DataFrame([
-    {"Failure_Type": "Attention", "Failure_Source": "Delayed Trigger", "count": 8},
-    {"Failure_Type": "Attention", "Failure_Source": "Missed Trigger", "count": 25},
-    {"Failure_Type": "Attention", "Failure_Source": "Spurious Trigger", "count": 11},
-    {"Failure_Type": "Perception", "Failure_Source": "Noisy Channel", "count": 22},
-    {"Failure_Type": "Perception", "Failure_Source": "Overcapture", "count": 7},
-    {"Failure_Type": "Perception", "Failure_Source": "Transcription", "count": 15},
-    {"Failure_Type": "Perception", "Failure_Source": "Truncation", "count": 7},
-    {"Failure_Type": "Response", "Failure_Source": "Action Execution: Incorrect", "count": 14},
-    {"Failure_Type": "Response", "Failure_Source": "Action Execution: No Action", "count": 14},
-    {"Failure_Type": "Understanding", "Failure_Source": "Ambiguity", "count": 18},
-    {"Failure_Type": "Understanding", "Failure_Source": "Misunderstanding", "count": 38},
-    {"Failure_Type": "Understanding", "Failure_Source": "No Understanding", "count": 20}
-])
-
-source_data_filtered = source_data[source_data['Failure_Type'].isin(selected_failure_types)]
-
-source_selection = alt.selection_multi(fields=['Failure_Source'], bind='legend')
-
-source_chart = alt.Chart(source_data_filtered).mark_bar().encode(
-    x=alt.X('Failure_Type:N', title='Failure Type'),
-    y=alt.Y('count:Q', title='Count'),
-    color=alt.Color('Failure_Source:N', title='Failure Source'),
-    opacity=alt.condition(source_selection, alt.value(1), alt.value(0.3)),
-    tooltip=['Failure_Type', 'Failure_Source', 'count']
-).add_selection(
-    source_selection
-).properties(
-    title="Most Common Voice Assistant Failure Types by Source",
-    width=600,
-    height=300
-)
-
-accent_data = pd.DataFrame([
-    {"accent": "Maybe", "Failure_Type": "Attention", "count": 16},
-    {"accent": "Maybe", "Failure_Type": "Perception", "count": 20},
-    {"accent": "Maybe", "Failure_Type": "Response", "count": 4},
-    {"accent": "Maybe", "Failure_Type": "Understanding", "count": 31},
-    {"accent": "No", "Failure_Type": "Attention", "count": 20},
-    {"accent": "No", "Failure_Type": "Perception", "count": 24},
-    {"accent": "No", "Failure_Type": "Response", "count": 19},
-    {"accent": "No", "Failure_Type": "Understanding", "count": 34},
-    {"accent": "Unknown", "Failure_Type": "Attention", "count": 1},
-    {"accent": "Unknown", "Failure_Type": "Understanding", "count": 2},
-    {"accent": "Yes", "Failure_Type": "Attention", "count": 7},
-    {"accent": "Yes", "Failure_Type": "Perception", "count": 7},
-    {"accent": "Yes", "Failure_Type": "Response", "count": 5},
-    {"accent": "Yes", "Failure_Type": "Understanding", "count": 9}
-])
-
-accent_data_filtered = accent_data[
-    (accent_data['accent'].isin(selected_accents)) &
-    (accent_data['Failure_Type'].isin(selected_failure_types))
-]
-
-accent_selection = alt.selection_multi(fields=['accent'], bind='legend')
-
-accent_chart = alt.Chart(accent_data_filtered).mark_bar().encode(
-    x=alt.X('Failure_Type:N', title='Failure Type'),
-    y=alt.Y('count:Q', title='Count'),
-    color=alt.Color('accent:N', title='Accent'),
-    opacity=alt.condition(accent_selection, alt.value(1), alt.value(0.3)),
-    tooltip=['accent', 'Failure_Type', 'count']
-).add_selection(
-    accent_selection
-).properties(
-    title="Failure Types Experienced by Users with/without Accents",
-    width=600,
-    height=300
-)
-
-gender_data = pd.DataFrame([
-    {"gender": "Man", "count": 101},
-    {"gender": "Woman", "count": 90},
-    {"gender": "Prefer Not To Answer", "count": 4},
-    {"gender": "Unknown", "count": 3},
-    {"gender": "Man,Woman", "count": 1}
-])
-
-gender_chart = alt.Chart(gender_data).mark_bar().encode(
-    x=alt.X('gender:N', title='Gender'),
-    y=alt.Y('count:Q', title='Number of Users'),
-    color=alt.Color('gender:N', legend=None),
-    tooltip=['gender', 'count']
-).properties(
-    title="Voice Assistant Usage by Gender",
-    width=400,
-    height=300
-)
-
-st.markdown("## Failure Types by Accent and Race (Top 4 Races)")
-st.altair_chart(race_chart, use_container_width=True)
-
-st.markdown("## Failure Types by Accent and Age Group")
-st.altair_chart(age_chart, use_container_width=True)
-
-st.markdown("## Most Common Voice Assistant Failure Types by Source")
+source_counts = df['Failure_Source'].value_counts().reset_index()
+source_counts.columns = ['Failure_Source', 'count']
+source_chart = alt.Chart(source_counts).mark_bar(color='orange').encode(
+    x=alt.X('count:Q', title='Number of Failures'),
+    y=alt.Y('Failure_Source:N', sort='-x'),
+    tooltip=['Failure_Source:N', 'count:Q']
+).properties(width=400, height=250)
 st.altair_chart(source_chart, use_container_width=True)
 
-st.markdown("## Failure Types Experienced by Users with/without Accents")
+heatmap_data = df.groupby(['Failure_Type', 'Failure_Source']).size().reset_index(name='count')
+heatmap = alt.Chart(heatmap_data).mark_rect().encode(
+    x=alt.X('Failure_Source:N'),
+    y=alt.Y('Failure_Type:N'),
+    color=alt.Color('count:Q', scale=alt.Scale(scheme='blues')),
+    tooltip=['Failure_Type', 'Failure_Source', 'count']
+).properties(width=600, height=300)
+st.altair_chart(heatmap, use_container_width=True)
+
+# ==============================
+st.header("🗣️ Question 2a: Accent and Failures")
+df_accent = df[df['has_accent'] != 'Unknown']
+accent_data = df_accent.groupby(['has_accent', 'Failure_Type']).size().reset_index(name='count')
+accent_totals = df_accent.groupby('has_accent').size().reset_index(name='total')
+accent_data = accent_data.merge(accent_totals, on='has_accent')
+accent_data['proportion'] = accent_data['count'] / accent_data['total']
+
+accent_chart = alt.Chart(accent_data).mark_bar().encode(
+    x=alt.X('has_accent:N', title='Has Accent'),
+    y=alt.Y('proportion:Q', title='Proportion'),
+    color=alt.Color('Failure_Type:N'),
+    tooltip=['has_accent', 'Failure_Type', 'proportion']
+).properties(width=500, height=300)
 st.altair_chart(accent_chart, use_container_width=True)
 
-st.markdown("## Voice Assistant Usage by Gender")
+# ==============================
+st.header("👥 Question 2b: Demographics and Failures")
+df['race_clean'] = df['race'].apply(lambda x: 'Multi/Other' if ',' in str(x) else x)
+race_data = df.groupby(['race_clean', 'has_accent', 'Failure_Type']).size().reset_index(name='count')
+race_chart = alt.Chart(race_data).mark_circle(size=100).encode(
+    x='race_clean:N',
+    y='Failure_Type:N',
+    size='count:Q',
+    color='has_accent:N',
+    tooltip=['race_clean', 'Failure_Type', 'count']
+).properties(width=600, height=300)
+st.altair_chart(race_chart, use_container_width=True)
+
+age_data = df[df['age_clean'] != 'Unknown'].groupby(['age_clean', 'has_accent', 'Failure_Type']).size().reset_index(name='count')
+age_chart = alt.Chart(age_data).mark_bar().encode(
+    x=alt.X('age_clean:N', sort=['18-24', '25-34', '35-44', '45-54', '55-64']),
+    y='count:Q',
+    color='Failure_Type:N',
+    column='has_accent:N',
+    tooltip=['age_clean', 'Failure_Type', 'count']
+).properties(width=150, height=200)
+st.altair_chart(age_chart, use_container_width=True)
+
+# ==============================
+st.header("🚻 Question 3: Gender Analysis")
+gender_counts = df['gender_clean'].value_counts().reset_index()
+gender_counts.columns = ['gender_clean', 'count']
+gender_pie = alt.Chart(gender_counts).mark_arc(innerRadius=50).encode(
+    theta='count:Q',
+    color='gender_clean:N',
+    tooltip=['gender_clean', 'count']
+).properties(width=300, height=300)
+st.altair_chart(gender_pie, use_container_width=True)
+
+gender_failure = df.groupby(['gender_clean', 'Failure_Type']).size().reset_index(name='count')
+gender_totals = df.groupby('gender_clean').size().reset_index(name='total')
+gender_failure = gender_failure.merge(gender_totals, on='gender_clean')
+gender_failure['proportion'] = gender_failure['count'] / gender_failure['total']
+
+gender_chart = alt.Chart(gender_failure).mark_bar().encode(
+    x='gender_clean:N',
+    y='proportion:Q',
+    color='Failure_Type:N',
+    tooltip=['gender_clean', 'Failure_Type', 'proportion']
+).properties(width=500, height=300)
 st.altair_chart(gender_chart, use_container_width=True)
+
+frequency_mapping = {
+    'Daily': 7, '4-6 times a week': 5, '2-3 times a week': 2.5,
+    'Once a week': 1, 'Unknown': 0
+}
+df['frequency_numeric'] = df['Frequency'].map(frequency_mapping).fillna(0)
+usage = df.groupby('gender_clean')['frequency_numeric'].mean().reset_index()
+usage_chart = alt.Chart(usage).mark_bar(color='teal').encode(
+    x='gender_clean:N',
+    y='frequency_numeric:Q',
+    tooltip=['gender_clean', 'frequency_numeric']
+).properties(title="Avg Usage by Gender", width=400, height=300)
+st.altair_chart(usage_chart, use_container_width=True)
 
