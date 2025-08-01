@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-st.title("Voice Assistant Failures Dashboard")
+st.title("Voice Assistant Failures Dashboard - Coordinated Visualizations")
 
 df = pd.read_csv("voice-assistant-failures.csv")
 df_clean = df[['accent', 'race', 'age', 'Failure_Type', 'gender', 'Frequency']].dropna()
@@ -24,6 +24,13 @@ df_filtered = df_clean[
     (df_clean['accent'].isin(selected_accents))
 ]
 
+# Create shared selections for coordination
+failure_type_brush = alt.selection_multi(fields=['Failure_Type'])
+accent_brush = alt.selection_multi(fields=['accent'])
+race_brush = alt.selection_multi(fields=['race'])
+age_brush = alt.selection_multi(fields=['age'])
+
+# Prepare data for charts
 top_failure_types = df_filtered['Failure_Type'].value_counts().nlargest(3).index.tolist()
 df_q2 = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
 top_races = df_q2['race'].value_counts().nlargest(4).index.tolist()
@@ -33,14 +40,17 @@ bar_size = 20
 facet_width = 240
 facet_height = 300
 
-failure_type_selection = alt.selection_multi(fields=['Failure_Type'], bind='legend')
-
+# Race Chart with coordinated selection
 race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
     x=alt.X('Failure_Type:N', title='Failure Type'),
     y=alt.Y('count()', title='Number of Failures'),
     color=alt.Color('accent:N', title='Accent', scale=alt.Scale(scheme='category10')),
     column=alt.Column('race:N', title='Race', spacing=30),
-    opacity=alt.condition(failure_type_selection, alt.value(1), alt.value(0.3)),
+    opacity=alt.condition(
+        failure_type_brush | accent_brush | race_brush, 
+        alt.value(1.0), 
+        alt.value(0.3)
+    ),
     tooltip=[
         alt.Tooltip('Failure_Type:N'),
         alt.Tooltip('race:N'),
@@ -48,9 +58,11 @@ race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
         alt.Tooltip('count()', title='Number of Failures')
     ]
 ).add_selection(
-    failure_type_selection
+    failure_type_brush,
+    accent_brush,
+    race_brush
 ).properties(
-    title='Failure Types by Accent and Race (Top 4)',
+    title='Failure Types by Accent and Race (Top 4) - Click to Select',
 ).configure_axis(
     labelFontSize=12,
     titleFontSize=14
@@ -69,6 +81,7 @@ race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
     labelAngle=40
 )
 
+# Age Chart with coordinated selection
 df_age = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
 
 age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
@@ -76,7 +89,11 @@ age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
     y=alt.Y('count()', title='Number of Failures'),
     color=alt.Color('accent:N', title='Accent', scale=alt.Scale(scheme='category10')),
     column=alt.Column('age:N', title='Age Group', spacing=30),
-    opacity=alt.condition(failure_type_selection, alt.value(1), alt.value(0.3)),
+    opacity=alt.condition(
+        failure_type_brush | accent_brush | age_brush, 
+        alt.value(1.0), 
+        alt.value(0.3)
+    ),
     tooltip=[
         alt.Tooltip('Failure_Type:N'),
         alt.Tooltip('age:N'),
@@ -84,9 +101,9 @@ age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
         alt.Tooltip('count()', title='Number of Failures')
     ]
 ).add_selection(
-    failure_type_selection
+    age_brush
 ).properties(
-    title='Failure Types by Accent and Age Group',
+    title='Failure Types by Accent and Age Group - Click to Select',
 ).configure_axis(
     labelFontSize=12,
     titleFontSize=14
@@ -105,6 +122,7 @@ age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
     labelAngle=40
 )
 
+# Source data with coordinated selection
 source_data = pd.DataFrame([
     {"Failure_Type": "Attention", "Failure_Source": "Delayed Trigger", "count": 8},
     {"Failure_Type": "Attention", "Failure_Source": "Missed Trigger", "count": 25},
@@ -122,22 +140,27 @@ source_data = pd.DataFrame([
 
 source_data_filtered = source_data[source_data['Failure_Type'].isin(selected_failure_types)]
 
-source_selection = alt.selection_multi(fields=['Failure_Source'], bind='legend')
+source_selection = alt.selection_multi(fields=['Failure_Source'])
 
 source_chart = alt.Chart(source_data_filtered).mark_bar().encode(
     x=alt.X('Failure_Type:N', title='Failure Type'),
     y=alt.Y('count:Q', title='Count'),
     color=alt.Color('Failure_Source:N', title='Failure Source'),
-    opacity=alt.condition(source_selection, alt.value(1), alt.value(0.3)),
+    opacity=alt.condition(
+        failure_type_brush | source_selection, 
+        alt.value(1.0), 
+        alt.value(0.3)
+    ),
     tooltip=['Failure_Type', 'Failure_Source', 'count']
 ).add_selection(
     source_selection
 ).properties(
-    title="Most Common Voice Assistant Failure Types by Source",
+    title="Most Common Voice Assistant Failure Types by Source - Click to Select",
     width=600,
     height=300
 )
 
+# Accent data with coordinated selection
 accent_data = pd.DataFrame([
     {"accent": "Maybe", "Failure_Type": "Attention", "count": 16},
     {"accent": "Maybe", "Failure_Type": "Perception", "count": 20},
@@ -160,22 +183,23 @@ accent_data_filtered = accent_data[
     (accent_data['Failure_Type'].isin(selected_failure_types))
 ]
 
-accent_selection = alt.selection_multi(fields=['accent'], bind='legend')
-
 accent_chart = alt.Chart(accent_data_filtered).mark_bar().encode(
     x=alt.X('Failure_Type:N', title='Failure Type'),
     y=alt.Y('count:Q', title='Count'),
     color=alt.Color('accent:N', title='Accent'),
-    opacity=alt.condition(accent_selection, alt.value(1), alt.value(0.3)),
+    opacity=alt.condition(
+        failure_type_brush | accent_brush, 
+        alt.value(1.0), 
+        alt.value(0.3)
+    ),
     tooltip=['accent', 'Failure_Type', 'count']
-).add_selection(
-    accent_selection
 ).properties(
-    title="Failure Types Experienced by Users with/without Accents",
+    title="Failure Types Experienced by Users with/without Accents - Coordinated",
     width=600,
     height=300
 )
 
+# Gender chart (standalone as it doesn't directly coordinate with failure types)
 gender_data = pd.DataFrame([
     {"gender": "Man", "count": 101},
     {"gender": "Woman", "count": 90},
@@ -184,16 +208,34 @@ gender_data = pd.DataFrame([
     {"gender": "Man,Woman", "count": 1}
 ])
 
+gender_selection = alt.selection_multi(fields=['gender'])
+
 gender_chart = alt.Chart(gender_data).mark_bar().encode(
     x=alt.X('gender:N', title='Gender'),
     y=alt.Y('count:Q', title='Number of Users'),
     color=alt.Color('gender:N', legend=None),
+    opacity=alt.condition(gender_selection, alt.value(1.0), alt.value(0.3)),
     tooltip=['gender', 'count']
+).add_selection(
+    gender_selection
 ).properties(
-    title="Voice Assistant Usage by Gender",
+    title="Voice Assistant Usage by Gender - Click to Select",
     width=400,
     height=300
 )
+
+# Display charts with coordination explanation
+st.markdown("""
+## Interactive Coordinated Dashboard
+
+**How the coordination works:**
+- Click on any failure type, accent, race, or age group in any chart
+- All related charts will highlight the corresponding data
+- Multiple selections are supported (hold Ctrl/Cmd while clicking)
+- Click on empty space to clear selections
+
+The charts are now coordinated so that selections in one chart affect the highlighting in others!
+""")
 
 st.markdown("## Failure Types by Accent and Race (Top 4 Races)")
 st.altair_chart(race_chart, use_container_width=True)
@@ -209,4 +251,22 @@ st.altair_chart(accent_chart, use_container_width=True)
 
 st.markdown("## Voice Assistant Usage by Gender")
 st.altair_chart(gender_chart, use_container_width=True)
+
+# Add explanation of what coordination proves
+st.markdown("""
+---
+## What This Coordination Proves:
+
+1. **Cross-dimensional Analysis**: Users can explore how different demographic factors (race, age, accent) relate to specific failure types across multiple visualizations simultaneously.
+
+2. **Pattern Recognition**: By selecting a failure type in one chart, users immediately see how that failure manifests across different demographic groups in other charts.
+
+3. **Bias Investigation**: The coordination helps identify if certain failure types disproportionately affect specific demographic groups - a key concern in voice assistant bias research.
+
+4. **User Experience Enhancement**: Instead of mentally tracking selections across separate charts, users get immediate visual feedback across all related visualizations.
+
+5. **Data Exploration Efficiency**: Users can quickly drill down into specific combinations (e.g., "Show me Understanding failures for users with accents across all age groups") without manually filtering each chart.
+
+This coordinated approach transforms individual charts into a cohesive analytical tool that reveals relationships between demographic factors and voice assistant performance that might not be apparent when viewing charts in isolation.
+""")
 
