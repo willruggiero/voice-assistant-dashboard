@@ -345,15 +345,15 @@ def create_dashboard():
         alt.vconcat(gender_failure_chart, usage_chart)
     ).resolve_scale(color='independent')
     
-    # Create final dashboard with coordinated interactions
+    # Create final dashboard
     dashboard = alt.vconcat(
         alt.hconcat(
             alt.vconcat(
-                section1_with_coordination
-            ).properties(title="Question 1: Failure Types and Sources (Interactive Filtering)"),
+                section1_with_heatmap
+            ).properties(title="Question 1: Failure Types and Sources"),
             alt.vconcat(
                 section2
-            ).properties(title="Question 2a: Accent and Failures (Brush Selection)")
+            ).properties(title="Question 2a: Accent and Failures")
         ),
         alt.hconcat(
             alt.vconcat(
@@ -367,7 +367,7 @@ def create_dashboard():
         color='independent'
     ).properties(
         title=alt.TitleParams(
-            text="Voice Assistant Failures Analysis Dashboard - Interactive Coordinated Views",
+            text="Voice Assistant Failures Analysis Dashboard",
             fontSize=16,
             anchor='start'
         )
