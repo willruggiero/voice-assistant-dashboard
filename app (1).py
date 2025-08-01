@@ -4,33 +4,26 @@ import altair as alt
 
 st.title("Voice Assistant Failures Dashboard")
 
-# Load data
 df = pd.read_csv("voice-assistant-failures.csv")
 df_clean = df[['accent', 'race', 'age', 'Failure_Type', 'gender', 'Frequency']].dropna()
 
-# Sidebar filters
 st.sidebar.header("Filters")
 
-# Filter Failure_Type
 all_failure_types = df_clean['Failure_Type'].unique().tolist()
 selected_failure_types = st.sidebar.multiselect("Filter by Failure Type", all_failure_types, default=all_failure_types)
 
-# Filter race
 all_races = df_clean['race'].unique().tolist()
 selected_races = st.sidebar.multiselect("Filter by Race", all_races, default=all_races)
 
-# Filter accent
 all_accents = df_clean['accent'].unique().tolist()
 selected_accents = st.sidebar.multiselect("Filter by Accent", all_accents, default=all_accents)
 
-# Apply filters to df_clean for race and failure_type charts
 df_filtered = df_clean[
     (df_clean['Failure_Type'].isin(selected_failure_types)) &
     (df_clean['race'].isin(selected_races)) &
     (df_clean['accent'].isin(selected_accents))
 ]
 
-# Prepare data for Race Facet Chart (Top 4 races and top 3 failure types, after filtering)
 top_failure_types = df_filtered['Failure_Type'].value_counts().nlargest(3).index.tolist()
 df_q2 = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
 top_races = df_q2['race'].value_counts().nlargest(4).index.tolist()
@@ -40,7 +33,6 @@ bar_size = 20
 facet_width = 240
 facet_height = 300
 
-# Selection for coordination and in-chart interaction
 failure_type_selection = alt.selection_multi(fields=['Failure_Type'], bind='legend')
 
 race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
@@ -77,7 +69,6 @@ race_chart = alt.Chart(df_race).mark_bar(size=bar_size).encode(
     labelAngle=40
 )
 
-# Age Facet Chart filtered by selected failure types and accents
 df_age = df_filtered[df_filtered['Failure_Type'].isin(top_failure_types)]
 
 age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
@@ -114,7 +105,6 @@ age_chart = alt.Chart(df_age).mark_bar(size=bar_size).encode(
     labelAngle=40
 )
 
-# Source Chart with interaction
 source_data = pd.DataFrame([
     {"Failure_Type": "Attention", "Failure_Source": "Delayed Trigger", "count": 8},
     {"Failure_Type": "Attention", "Failure_Source": "Missed Trigger", "count": 25},
@@ -130,7 +120,6 @@ source_data = pd.DataFrame([
     {"Failure_Type": "Understanding", "Failure_Source": "No Understanding", "count": 20}
 ])
 
-# Filter source_data based on selected failure types
 source_data_filtered = source_data[source_data['Failure_Type'].isin(selected_failure_types)]
 
 source_selection = alt.selection_multi(fields=['Failure_Source'], bind='legend')
@@ -149,7 +138,6 @@ source_chart = alt.Chart(source_data_filtered).mark_bar().encode(
     height=300
 )
 
-# Accent Chart with interaction, filtered by sidebar
 accent_data = pd.DataFrame([
     {"accent": "Maybe", "Failure_Type": "Attention", "count": 16},
     {"accent": "Maybe", "Failure_Type": "Perception", "count": 20},
@@ -167,7 +155,6 @@ accent_data = pd.DataFrame([
     {"accent": "Yes", "Failure_Type": "Understanding", "count": 9}
 ])
 
-# Filter accent_data by selected accents and failure types (from sidebar)
 accent_data_filtered = accent_data[
     (accent_data['accent'].isin(selected_accents)) &
     (accent_data['Failure_Type'].isin(selected_failure_types))
@@ -189,7 +176,6 @@ accent_chart = alt.Chart(accent_data_filtered).mark_bar().encode(
     height=300
 )
 
-# Gender Chart (static data)
 gender_data = pd.DataFrame([
     {"gender": "Man", "count": 101},
     {"gender": "Woman", "count": 90},
@@ -209,7 +195,6 @@ gender_chart = alt.Chart(gender_data).mark_bar().encode(
     height=300
 )
 
-# Layout the charts
 st.markdown("## Failure Types by Accent and Race (Top 4 Races)")
 st.altair_chart(race_chart, use_container_width=True)
 
